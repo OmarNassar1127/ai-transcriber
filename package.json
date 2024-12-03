@@ -1,0 +1,19 @@
+{
+  "name": "ai-transcriber",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start:frontend": "cd frontend && npm run dev",
+    "start:backend": "cd backend/transcriber_api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev": "concurrently \"npm run start:frontend\" \"npm run start:backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "dependencies": {
+    "@chakra-ui/react": "^3.2.2",
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "framer-motion": "^11.12.0"
+  }
+}
