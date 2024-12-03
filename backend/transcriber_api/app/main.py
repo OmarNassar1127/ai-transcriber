@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routes.transcription import router as transcription_router
+from app.api.routes.export import router as export_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -19,6 +20,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(transcription_router)  # Remove prefix for WebSocket endpoint
+app.include_router(export_router, prefix="/api")  # Add export routes under /api prefix
 
 @app.get("/healthz")
 async def healthz():

@@ -137,7 +137,7 @@ const TranscriptionPanel = () => {
 
   const handleExport = async (format) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/export/${format}`, {
+      const response = await fetch(`http://localhost:8001/api/export/${format}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

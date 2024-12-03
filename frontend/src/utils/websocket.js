@@ -1,13 +1,14 @@
 export const connectWebSocket = async (userName) => {
   return new Promise((resolve, reject) => {
     try {
-      const ws = new WebSocket(`ws://localhost:8000/api/ws/transcribe/${userName}`);
+      console.log(`Attempting to connect WebSocket for user: ${userName}`);
+      const ws = new WebSocket(`ws://localhost:8001/api/ws/transcribe/${userName}`);
       let heartbeatInterval;
       let reconnectAttempts = 0;
       const MAX_RECONNECT_ATTEMPTS = 5;
 
       ws.onopen = () => {
-        console.log('WebSocket connection established');
+        console.log('WebSocket connection established successfully');
         reconnectAttempts = 0;
 
         // Start heartbeat to keep connection alive
@@ -21,7 +22,7 @@ export const connectWebSocket = async (userName) => {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('WebSocket connection error:', error);
         clearInterval(heartbeatInterval);
 
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
@@ -38,7 +39,7 @@ export const connectWebSocket = async (userName) => {
       };
 
       ws.onclose = (event) => {
-        console.log('WebSocket connection closed:', event.code, event.reason);
+        console.log('WebSocket connection closed with code:', event.code, 'reason:', event.reason);
         clearInterval(heartbeatInterval);
 
         if (event.code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
