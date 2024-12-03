@@ -31,36 +31,61 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
                 message = json.loads(data)
                 logger.info(f"Received message from {username}: {message.get('type')}")
 
-                if message.get("type") == "heartbeat":
+                if message.get("type") != "audio":
                     await websocket.send_json({
-                        "type": "heartbeat",
-                        "status": "alive"
+                        "type": "error",
+                        "message": f"Unsupported message type: {message.get('type')}"
                     })
-                elif message.get("type") == "audio":
-                    # For testing: if test phrase is provided, use it directly
-                    if "testPhrase" in message:
-                        logger.info(f"Processing test phrase from {username}: {message['testPhrase']}")
-                        result = {
-                            "type": "transcription",
-                            "speaker": username,
-                            "text": message["testPhrase"],
-                            "timestamp": message.get("timestamp", None)
-                        }
-                    else:
-                        # Decode base64 audio data and process with speaker recognition
-                        audio_data = base64.b64decode(message["audio"])
-                        result = await audio_processor.process_audio(audio_data, username)
+                    continue
 
-                    logger.info(f"Broadcasting transcription result: {result}")
-                    # Broadcast transcription to all connected users
-                    for user_ws in connected_users.values():
-                        await user_ws.send_json(result)
+                # Handle audio message
+                if "testPhrase" in message:
+                    logger.info(f"Processing test phrase from {username}: {message['testPhrase']}")
+                    result = {
+                        "type": "transcription",
+                        "speaker": username,
+                        "text": message["testPhrase"],
+                        "timestamp": message.get("timestamp", None)
+                    }
+                elif "audio" in message:
+                    try:
+                        # Decode and validate base64 audio data
+                        audio_data = base64.b64decode(message["audio"])
+                        if not audio_data:
+                            raise ValueError("Empty audio data received")
+                        result = await audio_processor.process_audio(audio_data, username)
+                    except Exception as e:
+                        error_msg = f"Audio processing error: {str(e)}"
+                        logger.error(error_msg)
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": error_msg
+                        })
+                        continue
+                else:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Message must contain either 'testPhrase' or 'audio' data"
+                    })
+                    continue
+
+                # Broadcast valid transcription to all connected users
+                logger.info(f"Broadcasting transcription result: {result}")
+                for user_ws in connected_users.values():
+                    await user_ws.send_json(result)
 
             except json.JSONDecodeError:
                 logger.error(f"Invalid JSON received: {data}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Invalid JSON format"
+                })
             except Exception as e:
                 logger.error(f"Error processing message: {str(e)}")
-                await websocket.send_json({"type": "error", "message": str(e)})
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Server error: {str(e)}"
+                })
 
     except Exception as e:
         logger.error(f"WebSocket error: {str(e)}")

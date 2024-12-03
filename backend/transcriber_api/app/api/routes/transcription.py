@@ -13,7 +13,7 @@ router = APIRouter()
 # Store active WebSocket connections
 connections: Dict[str, WebSocket] = {}
 
-@router.websocket("/ws/transcribe/{speaker_name}")
+@router.websocket("/api/ws/transcribe/{speaker_name}")
 async def transcribe_audio(websocket: WebSocket, speaker_name: str):
     connection_id = str(uuid.uuid4())
     try:
@@ -33,29 +33,49 @@ async def transcribe_audio(websocket: WebSocket, speaker_name: str):
         })
 
         while True:
-            # Receive message
             try:
                 message = await websocket.receive_text()
                 data = json.loads(message)
+                message_type = data.get("type")
 
-                if data.get("type") == "audio":
-                    # For testing, use the test phrase directly
-                    test_phrase = data.get("testPhrase")
-                    if test_phrase:
-                        # Send transcription back to client
+                if message_type == "heartbeat":
+                    await websocket.send_json({"type": "heartbeat"})
+                    continue
+
+                if message_type == "audio":
+                    if "testPhrase" in data:
                         await websocket.send_json({
                             "type": "transcription",
-                            "text": test_phrase,
+                            "text": data["testPhrase"],
                             "speaker": speaker_name,
                             "speaker_id": speaker.id,
                             "timestamp": data.get("timestamp")
                         })
+                    elif "audio" in data:
+                        try:
+                            result = await audio_processor.process_audio(data["audio"])
+                            await websocket.send_json({
+                                "type": "transcription",
+                                "text": result["text"],
+                                "speaker": speaker_name,
+                                "speaker_id": speaker.id,
+                                "timestamp": data.get("timestamp")
+                            })
+                        except Exception as e:
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": f"Audio processing error: {str(e)}"
+                            })
                     else:
-                        # Handle real audio data here when implemented
                         await websocket.send_json({
                             "type": "error",
-                            "message": "No test phrase provided"
+                            "message": "Message must contain either 'testPhrase' or 'audio' data"
                         })
+                else:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Unsupported message type: {message_type}"
+                    })
             except json.JSONDecodeError:
                 await websocket.send_json({
                     "type": "error",
