@@ -32,25 +32,18 @@ export const startRecording = async (ws) => {
         if (event.data.size > 0) {
           try {
             const buffer = await event.data.arrayBuffer();
-            const audioContext = new AudioContext();
+            const audioContext = new AudioContext({ sampleRate: 16000 });
             const audioBuffer = await audioContext.decodeAudioData(buffer);
             const channelData = audioBuffer.getChannelData(0);
 
-            // Ensure the buffer length is a multiple of 4
-            const paddedLength = Math.ceil(channelData.length / 4) * 4;
-            const paddedData = new Float32Array(paddedLength);
-            paddedData.set(channelData);
-
             // Convert Float32Array to Int16Array (PCM16)
-            const pcm16Data = new Int16Array(paddedLength);
-            for (let i = 0; i < paddedLength; i++) {
-              const s = i < channelData.length ?
-                Math.max(-1, Math.min(1, paddedData[i])) :
-                0;  // Pad with silence
+            const pcm16Data = new Int16Array(channelData.length);
+            for (let i = 0; i < channelData.length; i++) {
+              const s = Math.max(-1, Math.min(1, channelData[i]));
               pcm16Data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
 
-            // Convert to base64 with proper byte alignment
+            // Convert to base64
             const base64Audio = btoa(
               String.fromCharCode.apply(null,
                 new Uint8Array(pcm16Data.buffer)
