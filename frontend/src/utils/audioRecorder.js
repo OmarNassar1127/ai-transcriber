@@ -30,20 +30,40 @@ export const startRecording = async (ws) => {
 
       mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
-          const buffer = await event.data.arrayBuffer();
-          const float32Array = new Float32Array(buffer);
-
-          // Convert to base64
-          const base64Audio = btoa(String.fromCharCode.apply(null, new Uint8Array(float32Array.buffer)));
-
           try {
+            const buffer = await event.data.arrayBuffer();
+            const audioContext = new AudioContext();
+            const audioBuffer = await audioContext.decodeAudioData(buffer);
+            const channelData = audioBuffer.getChannelData(0);
+
+            // Ensure the buffer length is a multiple of 4
+            const paddedLength = Math.ceil(channelData.length / 4) * 4;
+            const paddedData = new Float32Array(paddedLength);
+            paddedData.set(channelData);
+
+            // Convert Float32Array to Int16Array (PCM16)
+            const pcm16Data = new Int16Array(paddedLength);
+            for (let i = 0; i < paddedLength; i++) {
+              const s = i < channelData.length ?
+                Math.max(-1, Math.min(1, paddedData[i])) :
+                0;  // Pad with silence
+              pcm16Data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+
+            // Convert to base64 with proper byte alignment
+            const base64Audio = btoa(
+              String.fromCharCode.apply(null,
+                new Uint8Array(pcm16Data.buffer)
+              )
+            );
+
             ws.send(JSON.stringify({
               type: 'audio',
               audio: base64Audio,
               timestamp: Date.now()
             }));
           } catch (error) {
-            console.error('Error sending audio data:', error);
+            console.error('Error processing audio data:', error);
           }
         }
       };

@@ -47,26 +47,49 @@ const TranscriptionPanel = () => {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (data.type === 'transcription') {
-              setTranscript(prev => [...prev, { speaker: data.speaker, text: data.text }]);
-              toast({
-                title: 'New transcription received',
-                status: 'info',
-                duration: 1000,
-                isClosable: true,
-              });
-            } else if (data.type === 'connection_status') {
-              toast({
-                title: 'Connection Status',
-                description: data.message,
-                status: 'info',
-                duration: 2000,
-              });
-            } else if (data.type === 'error') {
-              throw new Error(data.message);
+            console.log('Received WebSocket message:', data);
+
+            switch (data.type) {
+              case 'transcription':
+                if (data.text) {
+                  setTranscript(prev => [...prev, {
+                    speaker: data.speaker || userName,
+                    text: data.text,
+                    timestamp: data.timestamp
+                  }]);
+                }
+                break;
+              case 'registration':
+                toast({
+                  title: 'Connected',
+                  description: `Registered as ${data.name}`,
+                  status: 'success',
+                  duration: 2000,
+                });
+                break;
+              case 'error':
+                console.error('Server error:', data.message);
+                toast({
+                  title: 'Error',
+                  description: data.message,
+                  status: 'error',
+                  duration: 3000,
+                });
+                break;
+              case 'heartbeat':
+                // Silently handle heartbeat responses
+                break;
+              default:
+                console.log('Received unknown message type:', data);
             }
           } catch (error) {
             console.error('Error processing message:', error);
+            toast({
+              title: 'Error',
+              description: 'Failed to process server message',
+              status: 'error',
+              duration: 3000,
+            });
           }
         };
 
@@ -114,7 +137,7 @@ const TranscriptionPanel = () => {
 
   const handleExport = async (format) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/export/${format}`, {
+      const response = await fetch(`http://localhost:8000/api/export/${format}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
